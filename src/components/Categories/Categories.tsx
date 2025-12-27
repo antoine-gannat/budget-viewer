@@ -14,11 +14,7 @@ import {
   Input,
   makeStyles,
 } from '@fluentui/react-components';
-
-interface ICategory {
-  name: string;
-  matchingTitles: string[];
-}
+import { getSavedCategories, saveCategories } from '../../logic/storage';
 
 const useStyles = makeStyles({
   container: {
@@ -39,13 +35,62 @@ export function Categories() {
     categoryChangeTimeoutRef.current &&
       clearTimeout(categoryChangeTimeoutRef.current);
 
+    category = category.toLowerCase();
+
     categoryChangeTimeoutRef.current = setTimeout(() => {
-      console.log('handleCategoryChange', index, category);
+      const savedCategories = getSavedCategories();
       const updatedExpenses = [...expenses];
-      updatedExpenses[index].category = category;
+
+      let categoryEntry = savedCategories.find((cat) => cat.name === category);
+      if (!categoryEntry) {
+        categoryEntry = { name: category, matchingTitles: [] };
+        savedCategories.push(categoryEntry);
+      }
+      // find all expenses with the same title and update their category too
+      const titleToMatch = updatedExpenses[index].title;
+      if (!categoryEntry.matchingTitles.includes(titleToMatch)) {
+        categoryEntry.matchingTitles.push(titleToMatch);
+      }
+      updatedExpenses.forEach((expense, i) => {
+        if (expense.title === titleToMatch) {
+          updatedExpenses[i] = { ...expense, category };
+        }
+      });
+      saveCategories(savedCategories);
       updateExpenses(updatedExpenses);
     }, 500); // Debounce saving to avoid excessive updates
   };
+
+  const bodyContent = React.useMemo(
+    () =>
+      expenses
+        .sort((a, b) => {
+          if (!a.category && b.category) return -1;
+          if (a.category && !b.category) return 1;
+          return 0;
+        }) // sort to move all categorized expenses to the bottom
+        .map(({ title, category, date, isCredit, amount }, index) => (
+          <TableRow
+            key={`${title}-${index}-${date}`}
+            style={{ fontWeight: !!category ? 700 : 0 }}
+          >
+            <TableCell>{date}</TableCell>
+            <TableCell>{title}</TableCell>
+            <TableCell>
+              {isCredit ? '+' : '-'}
+              {amount}€
+            </TableCell>
+            <TableCell>
+              <Input
+                defaultValue={category || ''}
+                onChange={(e) => handleCategoryChange(index, e.target.value)}
+                placeholder="Enter category"
+              />
+            </TableCell>
+          </TableRow>
+        )),
+    [expenses]
+  );
 
   return (
     <div className={styles.container}>
@@ -58,29 +103,7 @@ export function Categories() {
             <TableHeaderCell>Category</TableHeaderCell>
           </TableRow>
         </TableHeader>
-        <TableBody>
-          {expenses.map(
-            ({ title, category, date, isCredit, amount }, index) => (
-              <TableRow key={index}>
-                <TableCell>{date}</TableCell>
-                <TableCell>{title}</TableCell>
-                <TableCell>
-                  {isCredit ? '+' : '-'}
-                  {amount}
-                </TableCell>
-                <TableCell>
-                  <Input
-                    defaultValue={category || ''}
-                    onChange={(e) =>
-                      handleCategoryChange(index, e.target.value)
-                    }
-                    placeholder="Enter category"
-                  />
-                </TableCell>
-              </TableRow>
-            )
-          )}
-        </TableBody>
+        <TableBody>{bodyContent}</TableBody>
       </Table>
     </div>
   );

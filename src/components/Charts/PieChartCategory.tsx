@@ -29,17 +29,19 @@ export const PieChartCategory: React.FC<PieChartCategoryProps> = ({ data }) => {
     const categoryMap = new Map<string, number>();
 
     data
-      .filter((expense) => !expense.isCredit)
+      .filter((expense) => !expense.isCredit && !!expense.category) // only debits with category
       .forEach((expense) => {
         const category = expense.category || 'Uncategorized';
         const amount = parseFloat(expense.amount.replace(',', '.'));
         categoryMap.set(category, (categoryMap.get(category) || 0) + amount);
       });
 
-    return Array.from(categoryMap.entries()).map(([name, value]) => ({
-      name,
-      value,
-    }));
+    return Array.from(categoryMap.entries())
+      .map(([name, value]) => ({
+        name,
+        value,
+      }))
+      .filter((entry) => entry.value > 100);
   }, [data]);
 
   return (
@@ -62,7 +64,7 @@ export const PieChartCategory: React.FC<PieChartCategoryProps> = ({ data }) => {
           ))}
         </Pie>
         <Tooltip
-          formatter={(value: number | undefined) => `$${value?.toFixed(2)}`}
+          formatter={(value: number | undefined) => `${value?.toFixed(2)}€`}
         />
         <Legend />
       </PieChart>

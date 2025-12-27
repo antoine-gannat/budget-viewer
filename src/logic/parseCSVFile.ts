@@ -1,4 +1,5 @@
 import { IExpense } from '../components/Expense/ExpenseProvider';
+import { getSavedCategories } from './storage';
 
 const cleanup = (str: string) => str.trim().replace(/(^"|"$)/g, '');
 
@@ -13,19 +14,30 @@ const removeCardPrefix = (str: string): string => {
   return str.replace(cardPrefixRegex, '');
 };
 
+const removeDates = (str: string): string => {
+  const cardPrefixRegex = /\d{2}\/\d{2}/;
+  return str.replace(cardPrefixRegex, '');
+};
+
 export function parseCSVFile(csvContent: string): Array<IExpense> {
   const lines = csvContent.split('\n');
+  const savedCategories = getSavedCategories();
   return lines
     .slice(1)
     .map((line) => {
       const [date, _, title, debit, credit] = line.split(';');
       const isCredit = cleanup(credit) !== '';
       const amount = isCredit ? cleanup(credit) : cleanup(debit);
+
+      const cleanedTitle = removeDates(removeCardPrefix(cleanup(title)));
       return {
         date: cleanup(date),
-        title: removeCardPrefix(cleanup(title)),
+        title: cleanedTitle,
         amount,
         isCredit,
+        category: savedCategories.find((cat) =>
+          cat.matchingTitles.includes(cleanedTitle)
+        )?.name,
       };
     })
     .sort(
